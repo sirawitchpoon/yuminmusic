@@ -49,13 +49,13 @@ npm run dev
 
 ### 5. รันบน Docker (แนะนำ — OrbStack ตอนเทส, VPS ตอน production)
 
-**Test local (OrbStack):** uncomment ส่วน `build:` ใน `docker-compose.yml` แล้ว comment บรรทัด `image:`
+**Test local (OrbStack):** `docker-compose.yml` มี `build:` เปิดไว้แล้ว รันได้เลย:
 
 ```bash
 docker compose up --build
 ```
 
-**Deploy บน VPS** (pull image จาก GHCR):
+**Deploy บน VPS** (pull image จาก GHCR): comment บรรทัด `build:` แล้ว uncomment `image:` ใน `docker-compose.yml` จากนั้น:
 
 ```bash
 # 1. ตั้งค่า VPS ให้ login GHCR (ใช้ PAT ที่มี read:packages)
@@ -66,8 +66,8 @@ scp .env user@vps:/opt/yuminmusic/.env
 scp docker-compose.yml user@vps:/opt/yuminmusic/
 scp -r assets/ user@vps:/opt/yuminmusic/
 
-# 3. pull + start
-ssh user@vps "cd /opt/yuminmusic && docker compose pull && docker compose up -d"
+# 3. สร้าง data dir + pull + start
+ssh user@vps "mkdir -p /opt/yuminmusic/data && cd /opt/yuminmusic && docker compose pull && docker compose up -d"
 ```
 
 ### 6. ใช้งาน
@@ -91,7 +91,7 @@ ssh user@vps "cd /opt/yuminmusic && docker compose pull && docker compose up -d"
 |---|---|---|
 | ▶️ เล่นเพลง | ทุกคน | เปิด modal ขอ URL/keyword |
 | ⏸️ หยุดชั่วคราว | ทุกคน | toggle pause/resume |
-| ⏭️ ข้ามเพลง | ทุกคน | เริ่มโหวต (admin/DJ/คนขอ = force) |
+| ⏭️ ข้ามเพลง | ทุกคน | เริ่มโหวต — ผลแสดงใน player embed (admin/DJ/คนขอ = force skip) |
 | 📜 คิว | ทุกคน | ephemeral queue list |
 | 🔁 ลูป | DJ+ | off → track → queue |
 | 🛑 หยุด | DJ+ | stop + clear queue + disconnect |
@@ -124,8 +124,11 @@ src/
 ├── commands/             # /setup /reload /disconnect
 ├── interactions/         # router + buttons + modals
 ├── ui/                   # embed builders + message bank
+├── store/                # persistent guild store (data/guilds.json)
 └── auth/                 # role checks
 ```
+
+> **data persistence**: `/setup` บันทึก channel ID + player message ID ลง `data/guilds.json` ใน container — bot รู้ว่าจะแก้ embed ไหนแม้หลัง restart
 
 ## License
 

@@ -71,8 +71,22 @@ export function buildNowPlayingEmbed(track: Track, queue: GuildQueue): EmbedBuil
     .setFooter({ text: "ยุยกำลังฟังกับคุณอยู่นะคะ 🎵" });
 }
 
-export function buildQueueEndedEmbed(): EmbedBuilder {
+export function buildSkippingEmbed(track: Track, skippedBy: string): EmbedBuilder {
   return new EmbedBuilder()
-    .setColor(0xcccccc)
-    .setDescription("คิวว่างแล้วค่ะ~ ถ้าเงียบนานยุยจะออกจาก voice เองน้า 💤");
+    .setColor(0xffb3d9)
+    .setAuthor({ name: "⏭️ ข้ามเพลง" })
+    .setTitle(track.title)
+    .setURL(track.url)
+    .setThumbnail(track.thumbnail || null)
+    .setDescription(`ข้ามโดย ${skippedBy}`)
+    .setFooter({ text: "ยุยกำลังโหลดเพลงถัดไปนะคะ 🎵" });
+}
+
+export function buildIdleEmbed(): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0xd9d9d9)
+    .setDescription(
+      "ไม่มีเพลงเล่นอยู่ค่ะ~\nกด ▶️ **เล่นเพลง** เพื่อเริ่มได้เลยน้า 🎵",
+    )
+    .setFooter({ text: "ยุยรออยู่นะคะ~ 🐾" });
 }

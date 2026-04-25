@@ -31,7 +31,7 @@ COPY --from=builder /app/dist ./dist
 COPY package.json ./
 COPY assets ./assets
 
-RUN chown -R node:node /app
+RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 
 ENTRYPOINT ["dumb-init", "--"]

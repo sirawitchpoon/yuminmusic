@@ -3,15 +3,16 @@ services:
     # ใช้ image ที่ build ขึ้น GHCR สำหรับ production
     image: ghcr.io/sirawitchpoon/yuminmusic:latest
     # หรือ comment บรรทัด image ด้านบนแล้ว uncomment build ด้านล่างเพื่อ build local (OrbStack test)
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: yuminmusic
     restart: unless-stopped
     env_file:
       - .env
     volumes:
       - ./assets:/app/assets:ro
+      - ./data:/app/data
     mem_limit: 512m
     cpus: "1.0"
     logging:

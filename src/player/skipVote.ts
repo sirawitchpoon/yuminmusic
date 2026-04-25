@@ -3,6 +3,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  MessageFlags,
   type ButtonInteraction,
   type GuildMember,
   type TextBasedChannel,
@@ -12,6 +13,9 @@ import { config } from "../config.js";
 import { logger } from "../logger.js";
 import { isAdmin, isDJ } from "../auth/roles.js";
 import { pick, messages } from "../ui/messages.js";
+import { editPlayerDisplay } from "./events.js";
+import { buildSkippingEmbed } from "../ui/nowPlaying.js";
+import type { QueueMetadata } from "./events.js";
 
 const VOTE_DURATION_MS = 60_000;
 
@@ -118,15 +122,16 @@ export async function initiateSkipVote(
   const member = interaction.member as GuildMember;
 
   if (hasForceSkipPower(member, currentTrack)) {
-    queue.node.skip();
     const existing = activeVotes.get(queue.guild.id);
     if (existing && interaction.channel) {
       await finalizeSkip(queue, existing, interaction.channel, "forced");
     }
-    await interaction.reply({
-      content: `⏭️ ${member.displayName} ข้ามเพลง **${currentTrack.title}** แล้ว`,
-      ephemeral: false,
-    });
+    await editPlayerDisplay(
+      queue as GuildQueue<QueueMetadata>,
+      buildSkippingEmbed(currentTrack, member.displayName),
+    );
+    queue.node.skip();
+    await interaction.reply({ content: "⏭️", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -134,11 +139,12 @@ export async function initiateSkipVote(
   const needed = computeNeeded(listeners);
 
   if (needed <= 1) {
+    await editPlayerDisplay(
+      queue as GuildQueue<QueueMetadata>,
+      buildSkippingEmbed(currentTrack, member.displayName),
+    );
     queue.node.skip();
-    await interaction.reply({
-      content: `⏭️ ยุยข้ามเพลง **${currentTrack.title}** ให้เลยค่ะ~`,
-      ephemeral: false,
-    });
+    await interaction.reply({ content: "⏭️", flags: MessageFlags.Ephemeral });
     return;
   }
 

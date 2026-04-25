@@ -1,33 +1,47 @@
 import type { Player, GuildQueue } from "discord-player";
-import type { TextBasedChannel, Message } from "discord.js";
+import type { TextBasedChannel } from "discord.js";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
-import { buildNowPlayingEmbed, buildQueueEndedEmbed } from "../ui/nowPlaying.js";
+import { buildNowPlayingEmbed, buildIdleEmbed } from "../ui/nowPlaying.js";
 import { pick, messages } from "../ui/messages.js";
+import { getGuildEntry } from "../store/guildStore.js";
 
 export interface QueueMetadata {
   channel: TextBasedChannel;
-  nowPlayingMessageId?: string;
+  progressInterval?: NodeJS.Timeout;
   idleTimer?: NodeJS.Timeout;
 }
 
 function isSendable(
   channel: TextBasedChannel,
-): channel is TextBasedChannel & { send: (...args: unknown[]) => Promise<Message> } {
+): channel is TextBasedChannel & { send: (...args: unknown[]) => Promise<unknown> } {
   return "send" in channel && typeof (channel as { send?: unknown }).send === "function";
 }
 
-async function safeDeleteNowPlaying(queue: GuildQueue<QueueMetadata>): Promise<void> {
-  const meta = queue.metadata;
-  if (!meta?.channel || !meta.nowPlayingMessageId) return;
-  if (!isSendable(meta.channel)) return;
+export async function editPlayerDisplay(
+  queue: GuildQueue<QueueMetadata>,
+  embed: ReturnType<typeof buildNowPlayingEmbed>,
+): Promise<void> {
+  const entry = getGuildEntry(queue.guild.id);
+  if (!entry) {
+    logger.warn({ guildId: queue.guild.id }, "no guild entry found — run /setup first");
+    return;
+  }
   try {
-    const msg = await meta.channel.messages.fetch(meta.nowPlayingMessageId);
-    await msg.delete();
-  } catch {
-    // message already gone
-  } finally {
-    meta.nowPlayingMessageId = undefined;
+    const channel = await queue.player.client.channels.fetch(entry.channelId);
+    if (!channel?.isTextBased()) return;
+    const msg = await channel.messages.fetch(entry.playerMessageId);
+    await msg.edit({ embeds: [embed] });
+  } catch (err) {
+    logger.warn({ err, guildId: queue.guild.id }, "failed to edit player display");
+  }
+}
+
+function clearProgressInterval(queue: GuildQueue<QueueMetadata>): void {
+  const meta = queue.metadata;
+  if (meta?.progressInterval) {
+    clearInterval(meta.progressInterval);
+    meta.progressInterval = undefined;
   }
 }
 
@@ -47,14 +61,26 @@ function scheduleIdleDisconnect(queue: GuildQueue<QueueMetadata>): void {
   meta.idleTimer = setTimeout(() => {
     if (queue.isPlaying() || queue.tracks.size > 0) return;
     try {
-      if (meta.channel && isSendable(meta.channel)) {
-        void meta.channel.send({ content: pick(messages.disconnected) });
-      }
       queue.delete();
     } catch (err) {
       logger.warn({ err }, "idle disconnect failed");
     }
   }, config.IDLE_DISCONNECT_MS);
+}
+
+async function resetPlayerDisplay(queue: GuildQueue<QueueMetadata>): Promise<void> {
+  clearProgressInterval(queue);
+  await editPlayerDisplay(queue, buildIdleEmbed());
+}
+
+function startProgressInterval(queue: GuildQueue<QueueMetadata>): void {
+  const meta = queue.metadata;
+  if (!meta) return;
+  clearProgressInterval(queue);
+  meta.progressInterval = setInterval(() => {
+    if (!queue.isPlaying() || !queue.currentTrack) return;
+    void editPlayerDisplay(queue, buildNowPlayingEmbed(queue.currentTrack, queue));
+  }, 5_000);
 }
 
 export function registerPlayerEvents(player: Player): void {
@@ -70,28 +96,17 @@ export function registerPlayerEvents(player: Player): void {
       { guildId: queue.guild.id, title: track.title, durationMS: track.durationMS },
       "playerStart",
     );
-    const meta = queue.metadata as QueueMetadata | undefined;
     clearIdleTimer(queue as GuildQueue<QueueMetadata>);
-    if (!meta?.channel || !isSendable(meta.channel)) return;
-
-    try {
-      await safeDeleteNowPlaying(queue as GuildQueue<QueueMetadata>);
-      const msg = await meta.channel.send({
-        embeds: [buildNowPlayingEmbed(track, queue)],
-      });
-      meta.nowPlayingMessageId = msg.id;
-    } catch (err) {
-      logger.warn({ err }, "failed to send now-playing message");
-    }
+    await editPlayerDisplay(
+      queue as GuildQueue<QueueMetadata>,
+      buildNowPlayingEmbed(track, queue),
+    );
+    startProgressInterval(queue as GuildQueue<QueueMetadata>);
   });
 
-  player.events.on("playerFinish", async (queue, track) => {
-    const playbackMs = queue.node.estimatedDuration ?? -1;
-    logger.info(
-      { guildId: queue.guild.id, title: track.title, playbackMs },
-      "playerFinish",
-    );
-    await safeDeleteNowPlaying(queue as GuildQueue<QueueMetadata>);
+  player.events.on("playerFinish", (queue, track) => {
+    logger.info({ guildId: queue.guild.id, title: track.title }, "playerFinish");
+    clearProgressInterval(queue as GuildQueue<QueueMetadata>);
   });
 
   player.events.on("playerSkip", (queue, track, reason, description) => {
@@ -102,15 +117,7 @@ export function registerPlayerEvents(player: Player): void {
   });
 
   player.events.on("emptyQueue", async (queue) => {
-    const meta = queue.metadata as QueueMetadata | undefined;
-    await safeDeleteNowPlaying(queue as GuildQueue<QueueMetadata>);
-    if (meta?.channel && isSendable(meta.channel)) {
-      try {
-        await meta.channel.send({ embeds: [buildQueueEndedEmbed()] });
-      } catch (err) {
-        logger.warn({ err }, "failed to send queue-ended message");
-      }
-    }
+    await resetPlayerDisplay(queue as GuildQueue<QueueMetadata>);
     scheduleIdleDisconnect(queue as GuildQueue<QueueMetadata>);
   });
 
@@ -125,12 +132,12 @@ export function registerPlayerEvents(player: Player): void {
 
   player.events.on("disconnect", (queue) => {
     clearIdleTimer(queue as GuildQueue<QueueMetadata>);
-    void safeDeleteNowPlaying(queue as GuildQueue<QueueMetadata>);
+    void resetPlayerDisplay(queue as GuildQueue<QueueMetadata>);
   });
 
   player.events.on("queueDelete", (queue) => {
     clearIdleTimer(queue as GuildQueue<QueueMetadata>);
-    void safeDeleteNowPlaying(queue as GuildQueue<QueueMetadata>);
+    void resetPlayerDisplay(queue as GuildQueue<QueueMetadata>);
   });
 
   player.events.on("error", (queue, err) => {
