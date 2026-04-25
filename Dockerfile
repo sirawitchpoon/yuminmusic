@@ -1,7 +1,7 @@
 ################################
 # Stage 1 — build (deps + compile TS)
 ################################
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 RUN apk add --no-cache python3 make g++ linux-headers
 
@@ -17,9 +17,9 @@ RUN npm run build && npm prune --omit=dev
 ################################
 # Stage 2 — runtime (slim + ffmpeg)
 ################################
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 
-RUN apk add --no-cache ffmpeg dumb-init python3 py3-pip
+RUN apk add --no-cache ffmpeg dumb-init python3 py3-pip yt-dlp
 
 ENV NODE_ENV=production \
     NPM_CONFIG_LOGLEVEL=warn

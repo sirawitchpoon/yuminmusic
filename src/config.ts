@@ -42,6 +42,10 @@ const EnvSchema = z.object({
     }),
   PANEL_BANNER_PATH: z.string().optional().default("./assets/banner.png"),
   PANEL_GIF_PATH: z.string().optional().default("./assets/yui-idle.gif"),
+  /** Optional Netscape-format cookie string for YouTube (helps when streams are blocked). */
+  YOUTUBE_COOKIE: z.string().optional().default(""),
+  /** Override ffmpeg binary (defaults: FFMPEG_PATH env, else Linux /usr/bin/ffmpeg, else ffmpeg-static). */
+  FFMPEG_PATH: z.string().optional().default(""),
   LOG_LEVEL: z
     .enum(["trace", "debug", "info", "warn", "error", "fatal"])
     .optional()

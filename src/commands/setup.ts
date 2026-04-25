@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  MessageFlags,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type GuildMember,
@@ -29,11 +30,11 @@ export const setupCommand = {
       return;
     }
 
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const payload = buildPanelPayload();
     await interaction.channel.send(payload);
-    await interaction.reply({
+    await interaction.editReply({
       content: "วาง panel ให้แล้วน้า~ 💕 (ลบข้อความ panel เก่าด้วยมือถ้าไม่ใช้แล้วค่ะ)",
-      ephemeral: true,
     });
   },
 };

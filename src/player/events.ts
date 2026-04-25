@@ -58,7 +58,18 @@ function scheduleIdleDisconnect(queue: GuildQueue<QueueMetadata>): void {
 }
 
 export function registerPlayerEvents(player: Player): void {
+  player.events.on("audioTrackAdd", (queue, track) => {
+    logger.info(
+      { guildId: queue.guild.id, title: track.title, url: track.url, duration: track.duration },
+      "audioTrackAdd",
+    );
+  });
+
   player.events.on("playerStart", async (queue, track) => {
+    logger.info(
+      { guildId: queue.guild.id, title: track.title, durationMS: track.durationMS },
+      "playerStart",
+    );
     const meta = queue.metadata as QueueMetadata | undefined;
     clearIdleTimer(queue as GuildQueue<QueueMetadata>);
     if (!meta?.channel || !isSendable(meta.channel)) return;
@@ -74,8 +85,20 @@ export function registerPlayerEvents(player: Player): void {
     }
   });
 
-  player.events.on("playerFinish", async (queue) => {
+  player.events.on("playerFinish", async (queue, track) => {
+    const playbackMs = queue.node.estimatedDuration ?? -1;
+    logger.info(
+      { guildId: queue.guild.id, title: track.title, playbackMs },
+      "playerFinish",
+    );
     await safeDeleteNowPlaying(queue as GuildQueue<QueueMetadata>);
+  });
+
+  player.events.on("playerSkip", (queue, track, reason, description) => {
+    logger.warn(
+      { guildId: queue.guild.id, title: track.title, reason, description },
+      "playerSkip",
+    );
   });
 
   player.events.on("emptyQueue", async (queue) => {
