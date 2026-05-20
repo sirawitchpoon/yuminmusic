@@ -11,7 +11,7 @@ import {
 import type { GuildQueue, Track } from "discord-player";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
-import { isAdmin, isDJ } from "../auth/roles.js";
+import { isAdmin } from "../auth/roles.js";
 import { pick, messages } from "../ui/messages.js";
 import { editPlayerDisplay } from "./events.js";
 import { buildSkippingEmbed } from "../ui/nowPlaying.js";
@@ -42,7 +42,7 @@ function computeNeeded(listeners: number): number {
 }
 
 function hasForceSkipPower(member: GuildMember, track: Track | null): boolean {
-  if (isAdmin(member) || isDJ(member)) return true;
+  if (isAdmin(member)) return true;
   if (track && track.requestedBy && track.requestedBy.id === member.id) return true;
   return false;
 }

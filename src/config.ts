@@ -5,8 +5,6 @@ const EnvSchema = z.object({
   DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
   DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
   GUILD_ID: z.string().min(1, "GUILD_ID is required"),
-  ADMIN_ROLE_ID: z.string().optional().default(""),
-  DJ_ROLE_ID: z.string().optional().default(""),
   SKIP_VOTE_RATIO: z
     .string()
     .optional()

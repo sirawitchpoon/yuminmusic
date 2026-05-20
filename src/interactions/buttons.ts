@@ -5,12 +5,10 @@ import {
   TextInputStyle,
   MessageFlags,
   type ButtonInteraction,
-  type GuildMember,
   type InteractionReplyOptions,
 } from "discord.js";
 import { useQueue, QueueRepeatMode } from "discord-player";
 import { logger } from "../logger.js";
-import { isDJ } from "../auth/roles.js";
 import { pick, messages } from "../ui/messages.js";
 import { buildQueueEmbed } from "../ui/queueList.js";
 import { initiateSkipVote, handleVoteButton } from "../player/skipVote.js";
@@ -112,12 +110,6 @@ async function cycleLoop(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  const member = interaction.member as GuildMember;
-  if (!isDJ(member)) {
-    await interaction.reply(ephemeral(pick(messages.notAuthorized)));
-    return;
-  }
-
   const next =
     queue.repeatMode === QueueRepeatMode.OFF
       ? QueueRepeatMode.TRACK
@@ -138,11 +130,6 @@ async function cycleLoop(interaction: ButtonInteraction): Promise<void> {
 
 async function handleStop(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.guildId) return;
-  const member = interaction.member as GuildMember;
-  if (!isDJ(member)) {
-    await interaction.reply(ephemeral(pick(messages.notAuthorized)));
-    return;
-  }
 
   const queue = useQueue(interaction.guildId);
   if (!queue) {
